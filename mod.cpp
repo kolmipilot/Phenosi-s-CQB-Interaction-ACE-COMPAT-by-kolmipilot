@@ -1,0 +1,10 @@
+name = "Phenosi's CQB Interaction ace compat";
+picture = "modlogo.paa";
+description = "Phenosi's CQB Interaction ace compat";
+logo = "modlogo.paa";
+logoOver = "modlogo.paa";
+tooltip = "Phenosi's CQB Interaction ace compat";
+tooltipOwned = "";
+overview = "Phenosi's CQB Interaction compatibility with ace by kolmipilot";
+author = "kolmipilot";
+overviewPicture = "";

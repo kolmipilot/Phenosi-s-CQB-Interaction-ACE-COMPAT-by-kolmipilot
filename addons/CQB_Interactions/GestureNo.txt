@@ -1,0 +1,24 @@
+GestureNo
+
+
+GestureYes
+GestureNod
+GestureCeaseFire
+
+GestureFollow
+HandSignalMoveForward
+HandSignalGetUp
+
+GestureHiC
+GestureHi
+HandSignalFreeze
+HandSignalGetDown
+HandSignalHold
+HandSignalPoint
+
+
+
+HandSignalRadio
+
+            _animations = ["AA_ActsPercMstpSnonWnonDnon_Panicking1","AA_ActsPercMstpSnonWnonDnon_Panicking2","AA_ActsPercMstpSnonWnonDnon_Panicking3","AA_ActsPercMstpSnonWnonDnon_Panicking4","AA_ActsPercMstpSnonWnonDnon_Panicking5","AA_ActsPercMstpSnonWnonDnon_Panicking6","AA_ActsPercMstpSnonWnonDnon_Panicking7"] call BIS_fnc_selectRandom;
+            [_x, _animations] remoteExec ["switchMove"];
