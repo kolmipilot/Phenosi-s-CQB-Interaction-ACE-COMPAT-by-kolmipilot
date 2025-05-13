@@ -584,8 +584,18 @@ CQB_Interactions_Fnc_PreSetupUnit = {
     // przekazujemy _this do spawn i dopiero tam wyciągamy parametry
     _this spawn {
         params ["_unit", "_state", "_reason", "_caller"];
-
+        if (CQB_Detain_Interaction_Disable) exitWith {};
         if (_reason == "SetSurrendered") exitWith {};
+        if (_unit getVariable ["CQB_Interactions_ExemptfromMoraleSystem", false]) exitWith {};
+		if (CQB_Interactions_DisableTheWholeThing) exitWith {};
+		_side = (side _unit);
+		if ((_side == west) and CQB_Interactions_DisableForWEST_value) exitWith {};
+		if ((_side == east) and CQB_Interactions_DisableForEAST_value) exitWith {};
+		if ((_side == independent) and CQB_Interactions_DisableForIndependent_value) exitWith {};
+        _side = (str (side _unit));
+		if ((_side == 'CIV') and CQB_Interactions_DisableForCivilian_value) exitWith {};
+		if ((!(isPlayer _unit)) and (CQB_Interactions_DisableForAI_value)) exitWith {};
+        if ((isPlayer _unit) and (CQB_Interactions_DisableForPlayers_value)) exitWith {};
         if (_reason == "SetHandcuffed") then {
             if (_state == true) then {
                 _unit removeWeapon (currentWeapon _unit);
@@ -631,6 +641,35 @@ CQB_Interactions_Fnc_PreSetupUnit = {
                     [_unit, _x] remoteExec ["enableAI", 0, _unit];
                 };
             };
+        };
+    };
+}] call CBA_fnc_addEventHandler;
+
+["ace_captives_escortingCaptive", {
+    _this spawn {
+        params ["_unit", "_state", "_caller"];
+        
+        if(_state==true) then {
+        if (_unit getVariable ['CQB_IsbeingMoved', false]) exitWith {};
+        if (_unit getVariable ['CQB_IsbeingDragged', false]) exitWith {};
+        _unit setVariable ["CQB_IsbeingMoved", true, true];
+        // [_unit,"AinjPfalMstpSnonWrflDnon_carried_still"] remoteExec ["switchMove",0];
+                [_unit,""] remoteExec ["switchMove", 0];
+                _unit setUnitPos "UP";
+                [_unit,"AnimCableStandLoop"] remoteExec ["playActionNow", 0];
+        } else {
+            _unit setVariable ["CQB_IsbeingMoved", false, true];
+            _unit setVariable ["CQB_IsbeingDragged", false, true];
+
+            [_unit, "AnimCableCrouchStart"] remoteExec ["switchMove", 0];
+            [_unit, "AnimCableCrouchStart"] remoteExec ["playMove", 0];
+            uiSleep 1;
+
+            _rAnim = selectRandom ["AnimCableCrouchLoop","Acts_executionVictim_Loop"];
+            [_unit, _rAnim] remoteExec ["switchMove", 0];
+            [_unit, _rAnim] remoteExec ["playMove", 0];
+
+            uiSleep 0.1;
         };
     };
 }] call CBA_fnc_addEventHandler;
