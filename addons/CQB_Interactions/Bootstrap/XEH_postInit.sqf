@@ -44,6 +44,9 @@ if (hasinterface) then {
                 _unit allowfleeing 0;
                 [_unit, true] remoteExec ["setCaptive", 0];
                 _unit setVariable ["CQB_IsArrested", true, true];
+                if (HasACELoaded) then {
+                        [_unit, true] call ACE_captives_fnc_setHandcuffed;
+                    };
 
                 [_unit,"AnimCableStandStart"] remoteExec ["playAction", 0];
 
@@ -82,11 +85,6 @@ if (hasinterface) then {
 
                     uiSleep 1;
 
-                    // Re-enable AI for the unit
-                    ["move", "path", "ANIM", "TARGET", "AUTOTARGET"] apply {
-                        [_unit, _x] remoteExec ["enableAI", 0, _unit];
-                    };
-
                     _unit allowFleeing 1;
                     [_unit, false] remoteExec ["setCaptive", 0];
                     _unit setUnitPos "AUTO";
@@ -97,7 +95,14 @@ if (hasinterface) then {
 
                     // Update the unit's arrested state
                     _unit setVariable ["CQB_IsArrested", false, true];
-                
+                    if (HasACELoaded) then {
+                        [_unit, false] call ACE_captives_fnc_setHandcuffed;
+                    };
+
+                    // Re-enable AI for the unit
+                    ["move", "path", "ANIM", "TARGET", "AUTOTARGET"] apply {
+                        [_unit, _x] remoteExec ["enableAI", 0, _unit];
+                    };
             };
 
         }, "a3\ui_f\data\igui\cfg\holdactions\holdaction_secure_ca.paa"] call zen_custom_modules_fnc_register;

@@ -1,4 +1,5 @@
 HasIMSLoaded = isClass (configfile >> "CfgPatches" >> "WBK_MeleeMechanics");
+HasACELoaded = isClass (configFile >> "cfgPatches" >> "ace_captives");
 //CBA_3 Addon options settings
 // Disable Feature
 // [ 
@@ -579,7 +580,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         };
 
     }];
-
+    if (HasACELoaded) then {
     ["ace_captiveStatusChanged", {
     // przekazujemy _this do spawn i dopiero tam wyciągamy parametry
     _this spawn {
@@ -673,7 +674,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         };
     };
 }] call CBA_fnc_addEventHandler;
-
+};
 
 
     _unit addMPEventHandler ["MPKilled", {
@@ -798,7 +799,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'>Detain</t>",          
         "\a3\ui_f\data\IGUI\Cfg\holdactions\holdAction_secure_ca.paa",  
         "\a3\ui_f\data\IGUI\Cfg\holdactions\holdAction_secure_ca.paa",  
-        "(((alive _target) and (_this distance _target < 3) and (_target getVariable ['CBQ_Interactions_AbleToBeArrested', false]) and (!(_target getVariable ['CQB_IsArrested', false])) and ((_target getVariable ['CBQ_Interactions_UnitMorale', CQB_Interactions_BaseMorale]) <= (CQB_Interactions_BaseMorale * CQB_Interactions_SurrenderThreshold))) or ((alive _target) and (_target getVariable ['ace_captives_isSurrendering', false])))",       
+        "(((alive _target) and (_this distance _target < 3) and (_target getVariable ['CBQ_Interactions_AbleToBeArrested', false]) and (!(_target getVariable ['CQB_IsArrested', false])) and ((_target getVariable ['CBQ_Interactions_UnitMorale', CQB_Interactions_BaseMorale]) <= (CQB_Interactions_BaseMorale * CQB_Interactions_SurrenderThreshold))) or ((alive _target) and (_target getVariable ['ace_captives_isSurrendering', false]) && (HasACELoaded)))",       
         "_caller distance _target < 3",       
         {},              
         {},              
@@ -812,7 +813,9 @@ CQB_Interactions_Fnc_PreSetupUnit = {
                     _unit allowfleeing 0;
                     [_unit, true] remoteExec ["setCaptive", 0];
                     _unit setVariable ["CQB_IsArrested", true, true];
-                    [_unit, true] call ACE_captives_fnc_setHandcuffed;
+                    if (HasACELoaded) then {
+                        [_unit, true] call ACE_captives_fnc_setHandcuffed;
+                    };
 
                     [_unit, "revive_secured"] remoteExec ["switchMove", 0];
                     [_unit, "revive_secured"] remoteExec ["playMove", 0];
@@ -822,7 +825,10 @@ CQB_Interactions_Fnc_PreSetupUnit = {
                     _unit allowfleeing 0;
                     [_unit, true] remoteExec ["setCaptive", 0];
                     _unit setVariable ["CQB_IsArrested", true, true];
-                    [_unit, true] call ACE_captives_fnc_setHandcuffed;
+                    if (HasACELoaded) then {
+                        [_unit, true] call ACE_captives_fnc_setHandcuffed;
+                    };
+
 
                     [_unit,"AnimCableStandStart"] remoteExec ["playAction", 0];
 
@@ -882,7 +888,9 @@ CQB_Interactions_Fnc_PreSetupUnit = {
 
                     // Update the unit's arrested state
                     _unit setVariable ["CQB_IsArrested", false, true];
-                    [_unit, false] call ACE_captives_fnc_setHandcuffed;
+                    if (HasACELoaded) then {
+                        [_unit, false] call ACE_captives_fnc_setHandcuffed;
+                    };
 
                     // Re-enable AI for the unit
                     ["move", "PATH", "ANIM", "TARGET", "AUTOTARGET"] apply {
@@ -895,7 +903,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         false,                                     
         false,                                     
         "",                                       // shortcut
-        "((_this distance _originalTarget < 3) && (alive _originalTarget) && (_originalTarget getVariable ['CQB_IsArrested', false]) && (!(_this getVariable ['ace_captives_isEscorting', false])))",
+        "((_this distance _originalTarget < 3) && (alive _originalTarget) && (_originalTarget getVariable ['CQB_IsArrested', false]) && (!HasACELoaded || !(_this getVariable ['ace_captives_isEscorting', false])))",
         5,			// radius
         false,		// unconscious
         "",			// selection
