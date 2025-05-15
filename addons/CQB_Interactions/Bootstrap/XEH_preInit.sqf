@@ -119,6 +119,48 @@ publicVariable "CQB_Interactions_DisableForPlayers_value";
 ] call CBA_fnc_addSetting;
 
 [ 
+    "CQB_CarryCaptive_Interaction_Disable_Toggle", 
+    "CHECKBOX", 
+	["DISABLE: 'Carry Captive Interactions'", "Removes Carry Captive Actions, [REQUIRES RESTART!]"],
+    ["CQB Interactions", "0 | Disable Features"],
+    false,
+    1,
+    {   
+        params ["_value"]; 
+        CQB_CarryCaptive_Interaction_Disable = _value; 
+    },
+	true
+] call CBA_fnc_addSetting;
+
+[ 
+    "CQB_MoveCaptive_Interaction_Disable_Toggle", 
+    "CHECKBOX", 
+	["DISABLE: 'Move Captive Interactions'", "Removes Move Captive Actions, [REQUIRES RESTART!]"],
+    ["CQB Interactions", "0 | Disable Features"],
+    false,
+    1,
+    {   
+        params ["_value"]; 
+        CQB_MoveCaptive_Interaction_Disable = _value; 
+    },
+	true
+] call CBA_fnc_addSetting;
+
+[ 
+    "CQB_FollowOrder_Interaction_Disable_Toggle", 
+    "CHECKBOX", 
+	["DISABLE: 'Follow Orders'", "Removes Follow Captive Actions, [REQUIRES RESTART!]"],
+    ["CQB Interactions", "0 | Disable Features"],
+    false,
+    1,
+    {   
+        params ["_value"]; 
+        CQB_FollowOrder_Interaction_Disable = _value; 
+    },
+	true
+] call CBA_fnc_addSetting;
+
+[ 
     "CQB_DetainDeadBody_Interaction_Disable_Toggle", 
     "CHECKBOX", 
 	["DISABLE: Detain 'Dead Body'", "Removes 'Detain Dead Body' action, [REQUIRES RESTART!]"],
@@ -131,6 +173,21 @@ publicVariable "CQB_Interactions_DisableForPlayers_value";
     },
 	true
 ] call CBA_fnc_addSetting;
+
+[ 
+    "CQB_MoveIntoVehicles_Interaction_Disable_Toggle", 
+    "CHECKBOX", 
+	["DISABLE: 'Move Captive into Vehicle'", "Removes 'Move Captive into Vehicle' actions, [REQUIRES RESTART!]"],
+    ["CQB Interactions", "0 | Disable Features"],
+    false,
+    1,
+    {   
+        params ["_value"]; 
+        CQB_MoveIntoVehicles_Interaction_Disable_Toggle = _value; 
+    },
+	true
+] call CBA_fnc_addSetting;
+
 
 [ 
     "CQB_Interactions_UnarmedCiviliansExtradamage_Toggle", 
@@ -365,10 +422,11 @@ CQB_Interactions_Fnc_MoraleCheck = {
     if ( ((lifeState _unit) == "INCAPACITATED") or ((lifeState _unit) == "UNCONSCIOUS") or ((lifeState _unit) == "ASLEEP") ) exitWith { 
         _unit setVariable ["CBQ_Interactions_UnitMorale", 0, true];
         _unit setVariable ["CBQ_Interactions_AbleToBeArrested", true, true];
-        [_unit, true] call ACE_captives_fnc_setSurrendered;
       };
     if (
-        (_unit getVariable ["CQB_IsArrested", false]) or
+        ((_unit getVariable ["CQB_IsArrested", false]) or
+        (_unit getVariable ["CQB_IsFollowing", false]) or
+        (_unit getVariable ["CQB_IsbeingDragged", false])) or
         (!(isNull objectParent _unit)) or
         ((isNull _unit) or
         !(alive _unit))
@@ -580,9 +638,9 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         };
 
     }];
+
     if (HasACELoaded) then {
     ["ace_captiveStatusChanged", {
-    // przekazujemy _this do spawn i dopiero tam wyciągamy parametry
     _this spawn {
         params ["_unit", "_state", "_reason", "_caller"];
         if (CQB_Detain_Interaction_Disable) exitWith {};
@@ -599,6 +657,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         if ((isPlayer _unit) and (CQB_Interactions_DisableForPlayers_value)) exitWith {};
         if (_reason == "SetHandcuffed") then {
             if (_state == true) then {
+                if (!(_unit getVariable ['CQB_IsFollowing', false])) then {
                 _unit removeWeapon (currentWeapon _unit);
                 _unit allowFleeing 0;
                 [_unit, true] remoteExec ["setCaptive", 0];
@@ -617,7 +676,9 @@ CQB_Interactions_Fnc_PreSetupUnit = {
                 _rAnim = selectRandom ["AnimCableCrouchLoop","Acts_executionVictim_Loop"];
                 [_unit, _rAnim] remoteExec ["switchMove", 0];
                 [_unit, _rAnim] remoteExec ["playMove", 0];
+                };
             } else {
+                if (!(_unit getVariable ['CQB_IsFollowing', false])) then {
                 [_unit, "AnimCableCrouchToStand"] remoteExec ["switchMove", 0];
                 [_unit, "AnimCableCrouchToStand"] remoteExec ["playMove", 0];
                 uiSleep 2;
@@ -636,10 +697,9 @@ CQB_Interactions_Fnc_PreSetupUnit = {
                 ["CBQ_Interactions_MoraleChanged", [_unit, _NewVar]] call CBA_fnc_localEvent;
 
                 _unit setVariable ["CQB_IsArrested", false, true];
-                [_unit, false] call ACE_captives_fnc_setHandcuffed;
-
                 ["move", "path", "ANIM", "TARGET", "AUTOTARGET"] apply {
                     [_unit, _x] remoteExec ["enableAI", 0, _unit];
+                };
                 };
             };
         };
@@ -651,31 +711,25 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         params ["_unit", "_state", "_caller"];
         
         if(_state==true) then {
+        if (!(_unit getVariable ['CQB_IsFollowing', false])) then {
         if (_unit getVariable ['CQB_IsbeingMoved', false]) exitWith {};
         if (_unit getVariable ['CQB_IsbeingDragged', false]) exitWith {};
         _unit setVariable ["CQB_IsbeingMoved", true, true];
+        _unit setVariable ["CQB_IsFollowing", false, true];
         // [_unit,"AinjPfalMstpSnonWrflDnon_carried_still"] remoteExec ["switchMove",0];
                 [_unit,""] remoteExec ["switchMove", 0];
                 _unit setUnitPos "UP";
                 [_unit,"AnimCableStandLoop"] remoteExec ["playActionNow", 0];
+        };
         } else {
+            if (!(_unit getVariable ['CQB_IsFollowing', false])) then {
             _unit setVariable ["CQB_IsbeingMoved", false, true];
             _unit setVariable ["CQB_IsbeingDragged", false, true];
-
-            [_unit, "AnimCableCrouchStart"] remoteExec ["switchMove", 0];
-            [_unit, "AnimCableCrouchStart"] remoteExec ["playMove", 0];
-            uiSleep 1;
-
-            _rAnim = selectRandom ["AnimCableCrouchLoop","Acts_executionVictim_Loop"];
-            [_unit, _rAnim] remoteExec ["switchMove", 0];
-            [_unit, _rAnim] remoteExec ["playMove", 0];
-
-            uiSleep 0.1;
+            };
         };
     };
 }] call CBA_fnc_addEventHandler;
 };
-
 
     _unit addMPEventHandler ["MPKilled", {
     params ["_unit", "_killer", "_instigator", "_useEffects"];
@@ -799,7 +853,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'>Detain</t>",          
         "\a3\ui_f\data\IGUI\Cfg\holdactions\holdAction_secure_ca.paa",  
         "\a3\ui_f\data\IGUI\Cfg\holdactions\holdAction_secure_ca.paa",  
-        "(((alive _target) and (_this distance _target < 3) and (_target getVariable ['CBQ_Interactions_AbleToBeArrested', false]) and (!(_target getVariable ['CQB_IsArrested', false])) and ((_target getVariable ['CBQ_Interactions_UnitMorale', CQB_Interactions_BaseMorale]) <= (CQB_Interactions_BaseMorale * CQB_Interactions_SurrenderThreshold))) or ((alive _target) and (_target getVariable ['ace_captives_isSurrendering', false]) && (HasACELoaded)))",       
+        "((alive _target) and (_this distance _target < 3) and (_target getVariable ['CBQ_Interactions_AbleToBeArrested', false]) and (!(_target getVariable ['CQB_IsArrested', false]) and ((_target getVariable ['CBQ_Interactions_UnitMorale', CQB_Interactions_BaseMorale]) <= (CQB_Interactions_BaseMorale * CQB_Interactions_SurrenderThreshold))) or ((alive _target) and (_target getVariable ['ace_captives_isSurrendering', false]) && (HasACELoaded) && (_this distance _target < 3)))",       
         "_caller distance _target < 3",       
         {},              
         {},              
@@ -828,7 +882,6 @@ CQB_Interactions_Fnc_PreSetupUnit = {
                     if (HasACELoaded) then {
                         [_unit, true] call ACE_captives_fnc_setHandcuffed;
                     };
-
 
                     [_unit,"AnimCableStandStart"] remoteExec ["playAction", 0];
 
@@ -893,7 +946,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
                     };
 
                     // Re-enable AI for the unit
-                    ["move", "PATH", "ANIM", "TARGET", "AUTOTARGET"] apply {
+                    ["move", "path", "ANIM", "TARGET", "AUTOTARGET"] apply {
                         [_unit, _x] remoteExec ["enableAI", 0, _unit];
                     };
                 };
@@ -903,7 +956,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         false,                                     
         false,                                     
         "",                                       // shortcut
-        "((_this distance _originalTarget < 3) && (alive _originalTarget) && (_originalTarget getVariable ['CQB_IsArrested', false]) && (!HasACELoaded || !(_this getVariable ['ace_captives_isEscorting', false])))",
+        "((_this distance _originalTarget < 3) && (alive _originalTarget) && (!(_originalTarget getVariable ['CQB_IsbeingDragged', false])) && (!(_originalTarget getVariable ['CQB_IsbeingMoved', false])) && (_originalTarget getVariable ['CQB_IsArrested', false]) && (!(_originalTarget getVariable ['CQB_IsFollowing', false])) && (!HasACELoaded || !(_this getVariable ['ace_captives_isEscorting', false])))",
         5,			// radius
         false,		// unconscious
         "",			// selection
@@ -921,7 +974,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
             "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'> Secure (body)</t>",          
             "\a3\ui_f\data\IGUI\Cfg\holdactions\holdAction_secure_ca.paa",  
             "\a3\ui_f\data\IGUI\Cfg\holdactions\holdAction_secure_ca.paa",  
-            "(!(alive _target) and (_this distance _target < 3)) && (!(_target getVariable ['CQB_IsArrested', false]) and (([(side _this), (side _target)] call BIS_fnc_sideIsEnemy) or ((str (side _target)) == 'CIV')))",       
+            "(!(alive _target) and (_this distance _target < 3)) && (!(_originalTarget getVariable ['CQB_IsbeingDragged', false])) and (!(_target getVariable ['CQB_IsArrested', false]) and (([(side _this), (side _target)] call BIS_fnc_sideIsEnemy) or ((str (side _target)) == 'CIV')))",       
             "_caller distance _target < 3",       
             {},              
             {},              
@@ -944,6 +997,408 @@ CQB_Interactions_Fnc_PreSetupUnit = {
             false             
             ] remoteExec ["BIS_fnc_holdActionAdd", 0];	
         };
+    };
+
+
+if (!isnil "CQB_MoveIntoVehicles_Interaction_Disable_Toggle" && { (!(CQB_MoveIntoVehicles_Interaction_Disable_Toggle)) }) then {
+    
+    // move captive into vehicle cargo action
+    [_unit,
+    [
+        "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'>Move Captive into Vehicle</t>",
+        {
+            params ["_target", "_caller", "_actionId", "_arguments"];
+
+            // Find the nearest vehicle with available cargo space
+            _nearVehicles = nearestObjects [_caller, ["Car", "Truck", "Tank", "Air"], 10];
+            _vehicle = objNull;
+
+            {
+                if ((_x emptyPositions "cargo") > 0) exitWith {
+                    _vehicle = _x;
+                };
+            } forEach _nearVehicles;
+
+            if (isNull _vehicle) exitWith {
+                ['',"There is No vehicle with available cargo space nearby..."] call BIS_fnc_showSubtitle;
+            };
+
+            // Detach the captive if they are being carried or moved
+            if (_target getVariable ["CQB_IsbeingDragged", false] || _target getVariable ["CQB_IsbeingMoved", false]) then {
+                detach _target;
+                _target setVariable ["CQB_IsbeingDragged", false, true];
+                _target setVariable ["CQB_IsbeingMoved", false, true];
+                if (HasACELoaded) then {
+                _caller setVariable ["ace_captives_isEscorting", false, true];
+                _caller setVariable ["ace_captives_escortedUnit", objNull, true];
+                };
+
+                [_caller, ""] remoteExec ["switchMove",0];
+            };
+
+            // Move the captive into the vehicle's cargo
+            if (HasACELoaded) then {
+                [_target, _vehicle] call ACE_captives_fnc_vehicleCaptiveMoveIn;
+            } else {
+                _target moveInCargo _vehicle;
+            };
+
+            // Play an animation for the player
+            _rHandAnim = selectRandom ["HandSignalMoveForward", "HandSignalGetUp"];
+            [_caller, _rHandAnim] remoteExec ["playAction", 0];
+
+            // Notify the player
+            _displayName = getText (configFile >> "CfgVehicles" >> (typeOf _vehicle) >> "displayName");
+            _text = format ["Captive has been moved into %1", _displayName];
+            ['',_text] call BIS_fnc_showSubtitle;
+        },
+        nil,
+        1500,
+        true,
+        false,
+        "",
+        "((_this distance2D _originalTarget < 3) && (alive _originalTarget) && (_originalTarget getVariable ['CQB_IsArrested', false]) && (!(_originalTarget getVariable ['CQB_IsFollowing', false])) && (count nearestObjects [_this, ['Car', 'Truck', 'Tank', 'Air'], 10] > 0))", 
+        5,
+        false,
+        "",
+        ""
+    ]] remoteExec ["addAction", 0];
+};
+
+if (!isnil "CQB_MoveCaptive_Interaction_Disable" && {
+    (!(CQB_MoveCaptive_Interaction_Disable))
+    }) then {
+
+        //Moving captives
+        [_unit,
+        [
+            "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'>Move Captive</t>",
+            {
+                params ["_target", "_caller", "_actionId", "_arguments"];
+
+                _target setVariable ["CQB_IsbeingMoved", true, true];
+
+                [_target, _caller] spawn {
+                    params ["_unit","_player"];
+                if (HasACELoaded) then {
+                [_player, _unit, true] call ACE_captives_fnc_doEscortCaptive;
+                _player setVariable ["ace_captives_isEscorting", true, true];
+                _player setVariable ["ace_captives_escortedUnit", _unit, true];
+                };
+
+                // Random hand animation for player
+                _rHandAnim = selectRandom ["HandSignalGetUp"]; 
+                [_player, _rHandAnim] remoteExec ["playAction", 0];
+
+                uiSleep 1;
+
+                // [_player,"AcinPercMstpSrasWrflDnon"] remoteExec ["switchMove",0];
+                [_player,""] remoteExec ["playAction", 0];
+
+                // [_unit,"AinjPfalMstpSnonWrflDnon_carried_still"] remoteExec ["switchMove",0];
+                [_unit,""] remoteExec ["switchMove", 0];
+                _unit setUnitPos "UP";
+                [_unit,"AnimCableStandLoop"] remoteExec ["playActionNow", 0];
+                
+                _unit attachTo [_player,[0,0.8,0]]; 
+                [_unit,0] remoteExec ["setDir", 0];
+
+                };
+            },
+            nil,
+            1500,
+            true,
+            false,
+            "",
+            "((alive _target) and ( !((lifeState _target) == 'INCAPACITATED') or ((lifeState _target) == 'UNCONSCIOUS') or ((lifeState _target) == 'ASLEEP') ) and (_this distance2D _originalTarget < 3) && (alive _originalTarget) && (_originalTarget getVariable ['CQB_IsArrested', false]) && (!(_originalTarget getVariable ['CQB_IsbeingMoved', false])) && (!(_originalTarget getVariable ['CQB_IsbeingDragged', false])) && (!(_originalTarget getVariable ['CQB_IsFollowing', false])) )", // _target, _this, _originalTarget
+            5,
+            false,
+            "",
+            ""
+        ]] remoteExec ["addAction", 0];
+
+        [_unit,
+        [
+            "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'>Let go of Captive</t>",
+            {
+                params ["_target", "_caller", "_actionId", "_arguments"];
+
+                _target setVariable ["CQB_IsbeingMoved", false, true];
+                _target setVariable ["CQB_IsbeingDragged", false, true];
+                if (HasACELoaded) then {
+                _caller setVariable ["ace_captives_isEscorting", false, true];
+                _caller setVariable ["ace_captives_escortedUnit", objNull, true];
+                };
+
+                [_target, _caller] spawn {
+                    params ["_unit","_player"];
+
+                _rHandAnim = selectRandom [
+                "HandSignalGetDown",
+                "HandSignalHold",
+                "HandSignalPoint"
+                ];
+                [_player, _rHandAnim] remoteExec ["playAction", 0];
+
+                uiSleep 1;
+
+                [_player,""] remoteExec ["playAction", 0];
+                [_player,""] remoteExec ["switchMove", 0];
+
+                {
+                    if (_x isKindOf "MAN") then {
+
+                        detach _x;
+
+                        if ( ((lifeState _x) == "INCAPACITATED") or ((lifeState _x) == "UNCONSCIOUS") or ((lifeState _x) == "ASLEEP") ) then { 
+
+                            [_x, "revive_secured"] remoteExec ["switchMove", 0];
+                            [_x, "revive_secured"] remoteExec ["playMove", 0];
+
+                        } else {
+
+                            [_x, "AnimCableCrouchStart"] remoteExec ["switchMove", 0];
+                            [_x, "AnimCableCrouchStart"] remoteExec ["playMove", 0];
+
+                            uiSleep 1;
+
+                            _rAnim = selectRandom ["AnimCableCrouchLoop","Acts_executionVictim_Loop"];
+                            [_x, _rAnim] remoteExec ["switchMove", 0];
+                            [_x, _rAnim] remoteExec ["playMove", 0];
+
+                            uiSleep 0.1;
+                        };
+
+                    };
+                } forEach attachedObjects _player;
+
+                [_player, ""] remoteExec ["switchMove", 0];
+
+                };
+            },
+            nil,
+            1450,
+            false,
+            false,
+            "",
+            " ( ({_x isKindOf 'MAN'} count attachedObjects _this > 0) && (alive _originalTarget) && (_originalTarget getVariable ['CQB_IsArrested', false]) && (_originalTarget getVariable ['CQB_IsbeingMoved', false]) && (!(_originalTarget getVariable ['CQB_IsbeingDragged', false])) && (!(_originalTarget getVariable ['CQB_IsFollowing', false])) ) ", // _target, _this, _originalTarget
+            10,
+            false,
+            "",
+            ""
+        ]] remoteExec ["addAction", 0];
+    };
+
+    if (!isnil "CQB_CarryCaptive_Interaction_Disable" && {
+    (!(CQB_CarryCaptive_Interaction_Disable))
+    }) then {
+
+        //dragging captives
+        [_unit,
+        [
+            "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'>Carry Captive</t>",
+            {
+                params ["_target", "_caller", "_actionId", "_arguments"];
+
+                _target setVariable ["CQB_IsbeingDragged", true, true];
+                if (HasACELoaded) then {
+                _caller setVariable ["ace_captives_isEscorting", true, true];
+                _caller setVariable ["ace_captives_escortedUnit", _target, true];
+                };
+
+                [_target, _caller] spawn {
+                    params ["_unit","_player"];
+
+                [_player,"AcinPercMstpSrasWrflDnon"] remoteExec ["switchMove",0];
+
+                [_unit,"AinjPfalMstpSnonWrflDnon_carried_still"] remoteExec ["switchMove",0];
+                [_unit,"AnimCableStandLoop"] remoteExec ["playActionNow", 0];
+                
+                _unit attachTo [_player,[-0.2,-0.16,-1.2],"spine3",true]; 
+                [_unit,180] remoteExec ["setDir",0];
+
+                };
+            },
+            nil,
+            1500,
+            true,
+            false,
+            "",
+            "( (_this distance2D _originalTarget < 3) && (alive _originalTarget) && (_originalTarget getVariable ['CQB_IsArrested', false]) && (!(_originalTarget getVariable ['CQB_IsbeingDragged', false])) && (!(_originalTarget getVariable ['CQB_IsbeingMoved', false])) && (!(_originalTarget getVariable ['CQB_IsFollowing', false])) )", // _target, _this, _originalTarget
+            5,
+            false,
+            "",
+            ""
+        ]] remoteExec ["addAction", 0];
+
+        [_unit,
+        [
+            "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'>Let go of Captive</t>",
+            {
+                params ["_target", "_caller", "_actionId", "_arguments"];
+
+                _target setVariable ["CQB_IsbeingMoved", false, true];
+                _target setVariable ["CQB_IsbeingDragged", false, true];
+                if (HasACELoaded) then {
+                _caller setVariable ["ace_captives_isEscorting", false, true];
+                _caller setVariable ["ace_captives_escortedUnit", objNull, true];
+                };
+
+                [_target, _caller] spawn {
+                    params ["_unit","_player"];
+
+                [_player, "AcinPercMrunSrasWrflDf_AmovPercMstpSlowWrflDnon"] remoteExec ["switchMove",0];
+                [_player, "AcinPercMrunSrasWrflDf_AmovPercMstpSlowWrflDnon"] remoteExec ["playMove",0];
+
+                uiSleep 2;
+
+                {
+                    if (_x isKindOf "MAN") then {
+
+                        detach _x;
+
+                        if ( ((lifeState _x) == "INCAPACITATED") or ((lifeState _x) == "UNCONSCIOUS") or ((lifeState _x) == "ASLEEP") ) then { 
+
+                            [_x, "revive_secured"] remoteExec ["switchMove", 0];
+                            [_x, "revive_secured"] remoteExec ["playMove", 0];
+
+                        } else {
+
+                            [_x, "AnimCableCrouchStart"] remoteExec ["switchMove", 0];
+                            [_x, "AnimCableCrouchStart"] remoteExec ["playMove", 0];
+
+                            uiSleep 1;
+
+                            _rAnim = selectRandom ["AnimCableCrouchLoop","Acts_executionVictim_Loop"];
+                            [_x, _rAnim] remoteExec ["switchMove", 0];
+                            [_x, _rAnim] remoteExec ["playMove", 0];
+                        };
+
+                        uiSleep 0.1;
+                    };
+                } forEach attachedObjects _player;
+
+                [_player, ""] remoteExec ["switchMove", 0];
+
+                };
+            },
+            nil,
+            1450,
+            false,
+            false,
+            "",
+            " ( ({_x isKindOf 'MAN'} count attachedObjects _this > 0) && (alive _originalTarget) && (_originalTarget getVariable ['CQB_IsArrested', false]) && (_originalTarget getVariable ['CQB_IsbeingDragged', false]) && (!(_originalTarget getVariable ['CQB_IsbeingMoved', false])) && (!(_originalTarget getVariable ['CQB_IsFollowing', false])) ) ", // _target, _this, _originalTarget
+            10,
+            false,
+            "",
+            ""
+        ]] remoteExec ["addAction", 0];
+    };
+   
+    if (!isnil "CQB_FollowOrder_Interaction_Disable" && {
+    (!(CQB_FollowOrder_Interaction_Disable))
+    }) then {
+        // Follow
+        [ 
+        _unit,            
+        "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'> Order 'Follow'!</t>",          
+        "\a3\missions_f_oldman\data\img\holdactions\holdAction_follow_start_ca.paa",  
+        "\a3\missions_f_oldman\data\img\holdactions\holdAction_follow_start_ca.paa",  
+        "((alive _target) and ( !((lifeState _target) == 'INCAPACITATED') or ((lifeState _target) == 'UNCONSCIOUS') or ((lifeState _target) == 'ASLEEP') ) and (_this distance _target < 3) && (!(_originalTarget getVariable ['CQB_IsbeingDragged', false])) && (!(_originalTarget getVariable ['CQB_IsbeingMoved', false])) and (_target getVariable ['CQB_IsArrested', false]) and (!(_target getVariable ['CQB_IsFollowing', false])))",       
+        "_caller distance _target < 3",       
+        {},              
+        {},              
+        {
+            _rHandAnim = selectRandom ["GestureFollow","HandSignalMoveForward","HandSignalGetUp","HandSignalGetUp"]; 
+            [_caller, _rHandAnim] remoteExec ["playAction", 0];
+
+            [_target, _caller] spawn {
+                params ["_unit","_player"];
+                _unit setVariable ["CQB_IsFollowing", true, true];
+                if (HasACELoaded) then {
+                        [_unit, false] call ACE_captives_fnc_setHandcuffed;
+                        [_unit, false] call ACE_captives_fnc_setSurrendered;
+                    };
+                [_unit, "AnimCableCrouchToStand"] remoteExec ["switchMove", 0];
+                [_unit, "AnimCableCrouchToStand"] remoteExec ["playMove", 0];
+                uiSleep 2;
+                [_unit, ""] remoteExec ["switchMove", 0];
+                uiSleep 0.5;
+                [_unit,"AnimCableStandLoop"] remoteExec ["playActionNow", 0];
+
+                // doStop _unit;
+                [_unit, "move"] remoteExec ["enableAI", 0, _unit];
+                [_unit, "path"] remoteExec ["enableAI", 0, _unit];
+                [_unit, "ANIM"] remoteExec ["enableAI", 0, _unit];
+
+                // while { (_unit getVariable ['CQB_IsFollowing', false]) } do {
+
+                //     _unit doMove (getPos _player);
+                //     waitUntil {uiSleep 1; ( ((_player distance _unit) >= 5) or ( ((_player distance _unit) <= 5) and (!(_unit getVariable ['CQB_IsFollowing', false])) ) )};
+
+                //     if (!(_unit getVariable ['CQB_IsFollowing', false])) then { break };
+                // };
+
+                _unit setRank "PRIVATE";      
+                _unit setUnitRank "PRIVATE";
+                [_unit] joinSilent (group _player);
+                
+                waitUntil {uiSleep 0.05; (!(_unit getVariable ['CQB_IsFollowing', false])) };
+
+                uiSleep 1;
+
+                [_unit, "AnimCableCrouchStart"] remoteExec ["switchMove", 0];
+                [_unit, "AnimCableCrouchStart"] remoteExec ["playMove", 0];
+
+                [_unit, "move"] remoteExec ["disableAI", 0, _unit];
+                [_unit, "path"] remoteExec ["disableAI", 0, _unit];
+                _unit setUnitPos "UP";
+                [_unit, "ANIM"] remoteExec ["disableAI", 0, _unit];
+
+                uiSleep 1;
+                _rAnim = selectRandom ["AnimCableCrouchLoop","Acts_executionVictim_Loop"];
+                [_unit, _rAnim] remoteExec ["switchMove", 0];
+                [_unit, _rAnim] remoteExec ["playMove", 0];
+            };
+
+        },
+        {},
+        [],              
+        1,              
+        2400,              
+        false,             
+        false,
+        false           
+        ] remoteExec ["BIS_fnc_holdActionAdd", 0]; 
+
+        //STOP Follow
+        [ 
+        _unit,            
+        "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'> Stop 'Follow' order!</t>",          
+        "\a3\missions_f_oldman\data\img\holdactions\holdAction_follow_stop_ca.paa",  
+        "\a3\missions_f_oldman\data\img\holdactions\holdAction_follow_stop_ca.paa",  
+        "((alive _target) and ( !((lifeState _target) == 'INCAPACITATED') or ((lifeState _target) == 'UNCONSCIOUS') or ((lifeState _target) == 'ASLEEP') ) and  (_this distance _target < 3) && (!(_originalTarget getVariable ['CQB_IsbeingDragged', false])) and (_target getVariable ['CQB_IsArrested', false]) and (_target getVariable ['CQB_IsFollowing', false]))",       
+        "_caller distance _target < 3",       
+        {},              
+        {},              
+        {   
+            _target setVariable ["CQB_IsFollowing", false, true];
+            if (HasACELoaded) then {
+                        [_target, true] call ACE_captives_fnc_setHandcuffed;
+                        [_target, true] call ACE_captives_fnc_setSurrendered;
+                    };
+            _rHandAnim = selectRandom ["HandSignalFreeze","HandSignalGetDown","HandSignalGetDown","HandSignalHold"];
+            [_caller, _rHandAnim] remoteExec ["playAction", 0];
+            [_target] joinSilent grpNull;
+        },
+        {},
+        [],              
+        0.3,              
+        2369,              
+        false,             
+        false,
+        true             
+        ] remoteExec ["BIS_fnc_holdActionAdd", 0]; 
     };
 
         //Trigger for the animation and action//
@@ -1071,6 +1526,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
         [_unit, "AnimNoweaponsurrenderLoop"] remoteExec ["playMove", 0];
 
         _unit setVariable ["CBQ_Interactions_AbleToBeArrested", true, true];
+        if (HasACELoaded) then {
         [_unit, true] call ACE_captives_fnc_setSurrendered;
-
+        };
 };

@@ -1,3 +1,87 @@
+HasACELoaded = isClass (configFile >> "cfgPatches" >> "ace_captives");
+if (!isnil "CQB_MoveIntoVehicles_Interaction_Disable_Toggle" && { (!(CQB_MoveIntoVehicles_Interaction_Disable_Toggle)) }) then {
+    // Remove captives from vehicle action
+    player addAction
+    [
+        "<t color='#FFA500' size='1.0' shadow='1' font='PuristaBold'>Unload Captives from nearby Vehicle</t>",
+        {
+            params ["_target", "_caller", "_actionId", "_arguments"];
+
+            // Find the nearest vehicle with captives
+            _nearVehicles = nearestObjects [_caller, ["Car", "Truck", "Tank", "Air"], 10];
+            _vehicle = objNull;
+
+            {
+                // Check if the vehicle has any captives (units with CQB_IsArrested = true)
+                _captives = crew _x select { _x getVariable ["CQB_IsArrested", false] };
+                if (count _captives > 0) exitWith {
+                    _vehicle = _x;
+                };
+            } forEach _nearVehicles;
+
+            if (isNull _vehicle) exitWith {
+                ['', "No vehicle with captives nearby..."] call BIS_fnc_showSubtitle;
+            };
+
+            // Get all captives in the vehicle
+            _captives = crew _vehicle select { _x getVariable ["CQB_IsArrested", false] };
+
+            // Remove captives from the vehicle and place them on the ground
+            {
+                [_x, _vehicle] spawn {
+                    params ["_this", "_vehicle"];
+                    if (HasACELoaded) then {
+                    [_this] call ACE_captives_fnc_vehicleCaptiveMoveOut;
+                    } else {
+                    moveOut _this;
+                    _pos = [(getPos _vehicle), 1, 5, 1, 0, 20, 0] call BIS_fnc_findSafePos;
+                    _this setPos _pos;  
+                    _this setVariable ["CQB_IsbeingDragged", false, true];
+                    _this setVariable ["CQB_IsbeingMoved", false, true];
+
+
+                    [_this, "AnimCableCrouchStart"] remoteExec ["switchMove", 0];
+                    [_this, "AnimCableCrouchStart"] remoteExec ["playMove", 0];
+
+                    uiSleep 1;
+
+                    _rAnim = selectRandom ["AnimCableCrouchLoop","Acts_executionVictim_Loop"];
+                    [_this, _rAnim] remoteExec ["switchMove", 0];
+                    [_this, _rAnim] remoteExec ["playMove", 0];
+
+                    uiSleep 0.1;
+                    };
+                };
+            } forEach _captives;
+
+            // Play an animation for the player
+            _rHandAnim = selectRandom ["HandSignalFreeze", "HandSignalGetDown"];
+            [_caller, _rHandAnim] remoteExec ["playAction", 0];
+
+            // Notify the player
+            _displayName = getText (configFile >> "CfgVehicles" >> (typeOf _vehicle) >> "displayName");
+            _text = format ["Captives have been removed from %1", _displayName];
+            ['', _text] call BIS_fnc_showSubtitle;
+        },
+        nil,
+        1500,
+        true,
+        false,
+        "",
+        "
+            (_originalTarget == player) && 
+            (alive _originalTarget) &&
+            (isNull (objectParent _originalTarget)) && 
+            (count (nearestObjects [_originalTarget, ['Car', 'Truck', 'Tank', 'Air'], 10] select { 
+                count (crew _x select { _x getVariable ['CQB_IsArrested', false] }) > 0 
+            }) > 0)
+        ",
+        5,
+        false,
+        "",
+        ""
+    ];
+};
 
     private _hasZen = isClass (configFile >> "CfgPatches" >> "zen_custom_modules");
     if !(_hasZen) exitwith
@@ -46,7 +130,7 @@ if (hasinterface) then {
                 _unit setVariable ["CQB_IsArrested", true, true];
                 if (HasACELoaded) then {
                         [_unit, true] call ACE_captives_fnc_setHandcuffed;
-                    };
+                };
 
                 [_unit,"AnimCableStandStart"] remoteExec ["playAction", 0];
 
@@ -103,6 +187,7 @@ if (hasinterface) then {
                     ["move", "path", "ANIM", "TARGET", "AUTOTARGET"] apply {
                         [_unit, _x] remoteExec ["enableAI", 0, _unit];
                     };
+                
             };
 
         }, "a3\ui_f\data\igui\cfg\holdactions\holdaction_secure_ca.paa"] call zen_custom_modules_fnc_register;
