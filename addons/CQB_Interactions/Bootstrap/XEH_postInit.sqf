@@ -35,7 +35,8 @@ if (!isnil "CQB_MoveIntoVehicles_Interaction_Disable_Toggle" && { (!(CQB_MoveInt
                     } else {
                     moveOut _this;
                     _pos = [(getPos _vehicle), 1, 5, 1, 0, 20, 0] call BIS_fnc_findSafePos;
-                    _this setPos _pos;  
+                    _this setPos _pos;
+                    }; 
                     _this setVariable ["CQB_IsbeingDragged", false, true];
                     _this setVariable ["CQB_IsbeingMoved", false, true];
 
@@ -50,7 +51,6 @@ if (!isnil "CQB_MoveIntoVehicles_Interaction_Disable_Toggle" && { (!(CQB_MoveInt
                     [_this, _rAnim] remoteExec ["playMove", 0];
 
                     uiSleep 0.1;
-                    };
                 };
             } forEach _captives;
 

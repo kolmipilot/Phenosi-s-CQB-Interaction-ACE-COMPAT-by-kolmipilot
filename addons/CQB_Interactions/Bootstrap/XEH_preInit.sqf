@@ -679,6 +679,7 @@ CQB_Interactions_Fnc_PreSetupUnit = {
                 };
             } else {
                 if (!(_unit getVariable ['CQB_IsFollowing', false])) then {
+                systemChat "w trakcjie eh";
                 [_unit, "AnimCableCrouchToStand"] remoteExec ["switchMove", 0];
                 [_unit, "AnimCableCrouchToStand"] remoteExec ["playMove", 0];
                 uiSleep 2;
@@ -695,8 +696,9 @@ CQB_Interactions_Fnc_PreSetupUnit = {
                 _NewVar = [(floor (CQB_Interactions_BaseMorale * CQB_Interactions_SurrenderThreshold * 2)), 0, CQB_Interactions_BaseMorale] call BIS_fnc_clamp;
                 _unit setVariable ["CBQ_Interactions_UnitMorale", _NewVar, true];
                 ["CBQ_Interactions_MoraleChanged", [_unit, _NewVar]] call CBA_fnc_localEvent;
-
+                systemChat "przed zmiana arrest";
                 _unit setVariable ["CQB_IsArrested", false, true];
+                systemChat "po zmianie arrest";
                 ["move", "path", "ANIM", "TARGET", "AUTOTARGET"] apply {
                     [_unit, _x] remoteExec ["enableAI", 0, _unit];
                 };
@@ -725,6 +727,39 @@ CQB_Interactions_Fnc_PreSetupUnit = {
             if (!(_unit getVariable ['CQB_IsFollowing', false])) then {
             _unit setVariable ["CQB_IsbeingMoved", false, true];
             _unit setVariable ["CQB_IsbeingDragged", false, true];
+            [_unit, _caller] spawn {
+    params ["_unit", "_caller"];
+
+    _rHandAnim = selectRandom [
+        "HandSignalGetDown",
+        "HandSignalHold",
+        "HandSignalPoint"
+    ];
+    [_caller, _rHandAnim] remoteExec ["playAction", 0];
+
+    uiSleep 1;
+
+    [_caller, ""] remoteExec ["playAction", 0];
+    [_caller, ""] remoteExec ["switchMove", 0];
+
+    if ((lifeState _unit) in ["INCAPACITATED", "UNCONSCIOUS", "ASLEEP"]) then {
+        [_unit, "revive_secured"] remoteExec ["switchMove", 0];
+        [_unit, "revive_secured"] remoteExec ["playMove", 0];
+    } else {
+        [_unit, "AnimCableCrouchStart"] remoteExec ["switchMove", 0];
+        [_unit, "AnimCableCrouchStart"] remoteExec ["playMove", 0];
+
+        uiSleep 1;
+
+        _rAnim = selectRandom ["AnimCableCrouchLoop", "Acts_executionVictim_Loop"];
+        [_unit, _rAnim] remoteExec ["switchMove", 0];
+        [_unit, _rAnim] remoteExec ["playMove", 0];
+
+        uiSleep 0.1;
+    };
+
+    [_caller, ""] remoteExec ["switchMove", 0];
+};
             };
         };
     };
